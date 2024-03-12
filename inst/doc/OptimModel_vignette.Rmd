@@ -1,0 +1,480 @@
+---
+title: "OptimModel Vignette"
+author: "Steven Novick"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{OptimModel Vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction
+
+The R package OptimModel provides various nonlinear (or linear) curve-fitting functions that use `stats::optim()` as its base. The packages contains many commonly-used curves and also permits the user to create a new curve function as well.  To estimate curve parameters, the user may call upon ordinary least squares (OLS), weighted least squares (WLS), iterative reweighted least squares (IRWLS), or maximum likelihood estimate (MLE).  For WLS, the user provides a fixed set of weights.  For IRWLS and MLE, the user may choose among a variety of weight functions.  Finally, there is also a function for robust outlier detection (ROUT), based on the work of Motulsky and Brown (2006). 
+
+# Pre-specified models
+
+In the OptimModel package, data are assumed to stem from the model
+
+$$ y_i = f(\boldsymbol{\theta}, x_i) + e_i, i = 1, \ldots, n $$
+where $x_i$ is a concentration or dose, $y_i$ is the response, $\boldsymbol{\theta}$ is a vector of mean-model parameters, and $e_i \sim N(0, \sigma^2 g^2(\boldsymbol{\theta}, \boldsymbol{\phi}))$.  The mean of $y_i | x_i$ is $f(\boldsymbol{\theta}, x_i)$ and the variance is $\sigma^2 g^2(\boldsymbol{\theta}, \boldsymbol{\phi}))$ with variance-model parameters $\boldsymbol{\phi}$.  The default is $g(\boldsymbol{\theta}, \boldsymbol{\phi}) = 1$ so that $e_i \sim N(0, \sigma^2)$.  The user, however, may instead provide non-negative valued numerical weights $\{w_1, \ldots, w_n \}$ so that $e_i  \sim N(0, \sigma^2 \sqrt{w_i})$.
+
+
+A number of pre-defined models for the mean and variance are provided in OptimModel.  User-defined mean models and/or variance models may be supplied to the main function, optim_fit().
+
+
+## Mean-model functions
+
+Mean models are functions of the form $f(\theta, x)$, where $\theta$ is a parameter vector and $x$ is an R object that is processed by the function.  Usually $x$ is a vector of doses or concentrations; however, $x$ may also be a matrix, data.frame, or list.  Examples of user-defined mean models are provided at the end of this section.
+
+Although it is not a requirement, each of the mean-model functions included in OptimModel is given several attributes, shown in the table below, where f_model takes the place of the model function.
+
+
+```{r, echo=FALSE, results='asis'}
+
+d = data.frame( Attribute=c("attr(f_model, 'gradient')", "attr(f_model, 'backsolve')",
+                            "attr(f_model, 'start')"),
+                Purpose=c("Gradient of f_model with respect to theta", 
+                          "Find x such that f_model(theta, x) = y",
+                          "Starting values for optimization")
+)
+                           
+knitr::kable(d)
+```
+
+If attr(f_model, 'gradient') is missing, the gradient of f_model will be approximated.  If attr(f_model, 'start') is missing, the user must supply a starting value.
+
+### Exponential decay (first order)
+
+The first-order exponential decay model is given by
+$$f(\boldsymbol{\theta}, x) = A + B \times exp(-K x),$$
+where $x$ is the concentration or dose, $\boldsymbol{\theta} = (A, B, lK)$, $A$ is the minimum value, $A+B$ is the maximum value, and $K=exp(lK)$ is the shape parameter.
+
+## Exponential decay (first order) with plateau
+
+The first-order exponential decay model with plateau is an extension of the exponential decay model and given as $f(\boldsymbol{\theta}, x) = y_{max}$ if $x \le X_0$ and $f(\boldsymbol{\theta}, x) = y_{min} + (y_{max} - y_{min}) \times exp(-K (x-X0))$ if $x > X_0$, where $\boldsymbol{\theta} = (x_0, y_{min}, y_{max}, lK)$, $X_0=exp(x_0)$ is the inflection point between plateau and exponential decay curve, $y_{min}$ is the minimum value, $y_{max}$ is the maximum value, and $K=exp(lK)$ is the shape parameter.
+
+## Exponential decay (second order)
+
+The second-order exponential decay model is given by 
+$$f(\boldsymbol{\theta}, x) = A + B \times \{  p \times \exp(-K_1 x) + (1-p) \times \exp(-K_2 x) \},$$
+where $x$ is the concentration or dose, $\boldsymbol{\theta} = (A, B, lK_1, lK_2, p)$, $A$ is the minimum value, $A+B$ is the maximum value, $K_1=exp(lK_1)$ and $K_2 = exp(lK_2)$ are shape parameters, and $p$ is the proportion of signal from the first exponential term.
+
+### Gompertz model
+
+The four-parameter Gompertz model is a sigmoidal shaped curve, given by
+
+
+$$ f(\boldsymbol{\theta}, x) = A + (B - A)\times \exp( -\exp( m*(x- x_0)) ), $$
+where $x$ is the concentration or dose, $\boldsymbol{\theta} = (A, B, m, x_0)$, $A$ is the minimum value, $A + (B-A)\times exp(-exp(-m x_0 ))$ is the maximum value, $m$ is the shape parameter, and $x_0$ is an offset that shifts the curve on the $x$-axis.
+
+### Four-parameter Hill (4PL) model
+
+The Hill equation (Hill, 1910), which is equivalent to the four-parameter logistic curve (Verhulst, 1845), is a sigmoidal-shaped curve with meaningful parameters.  The mean model is
+
+$$ f(\boldsymbol{\theta}, x) = e_{min} + \frac{e_{max} - e_{min}}{ 1 + \exp( m \times( lec50 - log(x) ) )}, $$
+where $x$ is the concentration or dose, $\boldsymbol{\theta}=(e_{min}, e_{max}, lec50, m)$, $e_{min}$ is the minimum asymptote, $e_{max}$ is the maximum asymptote, $lec50$ is the natural log EC50, and $m$ is the shape parameter.  Note that $f(\boldsymbol{\theta}, EC50) = \frac{1}{2}( e_{min} + e_{max})$ and $m$ is often called the *slope* or *Hill* parameter. Refer to Hill (1910) or Verhulst (1845) for more information. 
+
+### Five-parameter Hill model
+
+The 5-parameter Hill equation is an extension of the 4-parameter model that is asymmetric around the EC50.  The model is given by
+
+$$ f(\boldsymbol{\theta}, x) = e_{min} + \frac{e_{max} - e_{min}}{ \{1 + exp( m \times( lec50 - log(x) ) )\}^s}, $$
+where $x$ is the concentration or dose, $\boldsymbol{\theta}=(e_{min}, e_{max}, lec50, m, ls)$, $e_{min}$ is the minimum asymptote, $e_{max}$ is the maximum asymptote, $lec50$ is the natural log EC50, $m$ is the shape parameter, and $s=exp(ls)$ is the symmetry parameter.  Note that $f(\boldsymbol{\theta}, EC50) = \frac{1}{2^s}( e_{min} + e_{max})$ and $m$ is often called the *slope* or *Hill* parameter.
+
+### Hill quadratic model
+
+The Hill model with a quadratic term is a five-parameter equation for biphasic data.  The mean model is given by
+
+$$ f(\boldsymbol{\theta}, x) = e_{min} + \frac{e_{max} - e_{min}}{ \{1 + exp( -\{a + b z + c z^2 \})}, $$
+where $z=log(x)$, $x$ is the concentration or dose, $\boldsymbol{\theta}=(e_{min}, e_{max}, a, b, c)$, $e_{min}$ is the minimum asymptote, $e_{max}$ is the maximum asymptote, and $(a, b, c)$ are respectively the intercept, linear, and quadratic terms.
+
+Note that if $c = 0$, this model is equivalent to the four-parameter Hill model (hill.model).  Also, the $EC50$ is defined where $a + b z + c z^2 = 0$.  If the roots of the quadratic equation are real, then the $EC50$ is given by $(-b +/- \sqrt{b^2 - 4 a c})/(2 c)$.  The user decides which of the roots is meaningful.
+
+
+
+### Hill switchpoint model
+
+The Hill switchpoint is a biphasic equation that extends the four-parameter Hill model. The mean model is
+
+$$ f(\boldsymbol{\theta}, x) = e_{min} + \frac{e_{max} - e_{min}}{ 1 + exp( m f(s, x) \times( lec50 - log(x) ) )}, $$
+where $x$ is the concentration or dose, $\boldsymbol{\theta}=(e_{min}, e_{max}, lec50, m, ls)$, $e_{min}$ is the minimum asymptote, $e_{max}$ is the maximum asymptote, $lec50$ is the natural log EC50, and $m$ is the shape parameter.  Note that $f(\boldsymbol{\theta}, EC50) = \frac{1}{2}( e_{min} + e_{max})$ and $m$ is often called the *slope* or *Hill* parameter.
+
+
+### Beta model
+
+The Beta model is a biphasic curve based on the Beta function. Found in `MCPMod::betaMod()`, the curve is given by
+
+$$ f(\boldsymbol{\theta}, x) = e_{min} + e_{max} \times exp \left( log\{ \beta(\delta_1, \delta_2) \} +
+    \delta_1 \times log(x) + \delta_2 \times log(sc - x) - (\delta_1 + \delta_2) \times log(sc) \right),
+$$
+where $\beta(\delta_1, \delta_2) = (\delta_1+\delta_2)^{(\delta_1+\delta_2)} / ( \delta_1^{\delta_1} \times \delta_2^{\delta^2} )$, $e_{min}$ is a lower aymptote, $e_{max}$ is an upper asymptote, $sc$ is a scaling parameter, and $\delta_1$ and $\delta_2$ are power parameters.
+
+### User defined mean model
+
+An example of a user-defined mean model is from simple linear regression.  Code is provided below in which theta = c( intercept, slope ) and $x$ is a vector.
+
+```
+slr_model = function(theta, x){  theta[1] + theta[2]*x }
+
+theta = c( 2, -5 )   ## Intercept, slope
+x = seq(1, 10, by=0.5)
+slr_model(theta, x)
+
+```
+
+The next example shows $x$ as a matrix for multivariate linear regression.
+
+```
+mlr_model = function(theta, x){  theta[1] + theta[2]*x[,1] + theta[3]*x[,2] }
+
+theta = c( 2, -5, 0.1 )   ## Intercept, slope1, slope2
+x1 = seq(1, 10, by=0.5)
+x2 = seq(10, 1, by=-0.5)
+mlr_model(theta, x=cbind(x1, x2))
+
+```
+
+
+
+## Weight/Variance functions
+
+The package OptimModel also provides several pre-defined weight/variance functions.  The default function is weights_varIdent(), which sets $g(\boldsymbol{\theta}, \boldsymbol{\phi}) = 1$ for all observations (i.e., no weights).  The user has no reason to call weights_varIdent().
+
+The following table shows the forms of $g(\boldsymbol{\theta}, \boldsymbol{\phi})$ for pre-defined functions, where $mu = f(\boldsymbol{\theta}, x)$ and $resid = y - mu$.
+
+```{r, echo=FALSE, results='asis'}
+
+d = data.frame( Function=c("weights_varIdent(phi, mu)", "weights_varExp(phi, mu)", 
+                           "weights_varPower(phi, mu)", "weights_varConstPower(phi, mu)", 
+                           "weights_tukey_bw(phi=4.685, resid)", "weights_huber(phi=1.345, resid)"),
+                Code=c("rep(1, length(mu))", "exp(phi*mu)", "abs(mu)^(phi)", "phi[1]+abs(mu)^(phi[2])",
+                       "see below", "see below") )
+                           
+knitr::kable(d)
+```
+
+### Tukey bi-weight
+
+  The weight function is $w = (1-(r/\phi)^2)^2$ if $r \le \phi$ and $w=0$ otherwise, where $r = |resid|/sig$ and sig = mad(resid, center=0).  Traditionally, $phi = 4.685$.
+
+### Huber weights
+
+The weight function is $w = min(1, \phi / r)$, where $r = |resid|/sig$ and sig = mad(resid, center=0).  Traditionally, $phi = 1.345$.  This is also the default weight used in `MASS::rlm()`.
+
+### User-defined weights
+
+The user may provide a weight function with arguments *phi* and *mu*.  For example,
+
+```
+weights_user1 = function(phi, mu){  ifelse( mu < 5, (1/mu), (1/mu)^phi ) }
+
+mu = 1:10
+phi = 2.4
+weights_user1(phi, mu)
+```
+
+## Calling optim_fit
+
+Usage of the optim_fit() function will be illustrated with a data set generated from the hill_model().  An optim_fit() object is associated with S3-type functionality for *print*, *fitted*, and *residuals*.
+
+### OLS and WLS
+
+Data are generated from hill_model().  For OLS and WLS, the call to optim_fit() is bare boned.  The print.optim_fit() function provides parameter estimates, standard errors, and 95\% confidence intervals. It also provides the rMSE (sigma), an $r^2$ value, and BIC value.
+
+```{r, echo=TRUE}
+
+library(OptimModel)
+
+set.seed(456)
+x = rep( c(0, 2^(-4:4)), each=4 )
+theta = c(0, 100, log(.5), 2)
+y = hill_model(theta, x) + rnorm( length(x), sd=2 )
+
+  ## No need to include a starting value.
+fit = optim_fit(theta0=NULL, f.model=hill_model, x=x, y=y)
+print(fit)
+
+## Coefficients
+coef(fit)
+
+## Fitted values
+fitted(fit)
+
+## Residuals
+residuals(fit)
+```
+
+The predict() function may be used to obtain mean-model estimates at specific *x* values. It may also provide standard errors, confidence intervals, and prediction intervals.  A graph of the data with 95\% confidence bands is provided.
+
+```{r, echo=TRUE}
+predict(fit, x=2:5)
+
+predict(fit, x=2:5, se.fit=TRUE)
+
+## 95% confidence interval
+predict(fit, x=2:5, interval="confidence")
+
+## 90% confidence interval
+predict(fit, x=2:5, interval="confidence", level=0.9)
+
+## 95% prediciton interval for next observation (K=1)
+predict(fit, x=2:5, interval="prediction", K=1)
+
+
+d = data.frame(x=x, y=y)
+pred = as.data.frame(predict(fit, x=2^seq(-6, 4, length=25), interval="confidence"))
+
+library(ggplot2)
+ggplot( d, aes(x=x, y=y) ) + geom_point() + 
+  geom_line( data=pred, aes(x, y.hat)) +
+  geom_ribbon( data=pred, aes(x=x, y=y.hat, ymin=lower, ymax=upper), alpha=0.3) +
+  scale_x_log10() + ggtitle("OLS")
+
+## Fixed weights.  In this example, weights are increasing step-wise with x
+w = ifelse(x < 0.1, 0.5, ifelse(x < 2, 1, 2))
+  ## No need to include a starting value.
+fit = optim_fit(theta0=NULL, f.model=hill_model, x=x, y=y, wts=w)
+print(fit)
+
+pred = as.data.frame(predict(fit, x=2^seq(-6, 4, length=25), interval="confidence"))
+
+ggplot( d, aes(x=x, y=y) ) + geom_point() + 
+  geom_line( data=pred, aes(x, y.hat)) +
+  geom_ribbon( data=pred, aes(x=x, y=y.hat, ymin=lower, ymax=upper), alpha=0.3) +
+  scale_x_log10() + ggtitle("WLS")
+```
+
+### MLE
+
+The same curve may be fitted to the data via maximum likelihood.  In the following code output, note that the starting value needs to include log of the standard deviation ('lsigma') as the last parameter.
+
+```{r, echo=TRUE}
+
+fit = optim_fit(theta0=NULL, f.model=hill_model, x=x, y=y, fit.method="mle")
+print(fit)
+```
+
+Maximum likelihood can also be used with variance model functions.  The following code illustrates the method with a power-of-the-mean variance model (weights_varPower) with $\sigma=0.7$ and $\phi = 0.5$.
+
+```{r, echo=TRUE}
+
+set.seed(876)
+
+## Standard deviation = sigma*( Mean )^0.5
+y2 = hill_model(theta, x) + rnorm( length(x), sd=0.7*sqrt(hill_model(theta, x)) )
+
+
+fit = optim_fit(theta0=NULL, f.model=hill_model, x=x, y=y2, wts=weights_varPower,
+                fit.method="mle", phi.fixed=FALSE)
+print(fit)
+```
+
+### IRWLS
+
+The same variance model may be fitted to the data using iterative reweighted least squares.
+
+```{r, echo=TRUE}
+
+fit = optim_fit(theta0=NULL, f.model=hill_model, x=x, y=y2, wts=weights_varPower,
+                fit.method="irwls", phi.fixed=FALSE)
+print(fit)
+
+
+d = data.frame(x=x, y=y2)
+pred = as.data.frame(predict(fit, x=2^seq(-6, 4, length=25), interval="confidence"))
+
+ggplot( d, aes(x=x, y=y) ) + geom_point() + 
+  geom_line( data=pred, aes(x, y.hat)) +
+  geom_ribbon( data=pred, aes(x=x, y=y.hat, ymin=lower, ymax=upper), alpha=0.3) +
+  scale_x_log10()
+
+```
+
+
+
+### Robust model fit
+
+Iterative reweighted least squares may be implemented with a robust weighting scheme, such as Huber weighting, to down-weight outliers.  With OLS, the curve gets pulled slightly downward by the outliers, but with the Huber weighting, the outliers are virtually ignored.
+
+```{r, echo=TRUE}
+
+set.seed(456)
+x = rep( c(0, 2^(-4:4)), each=4 )
+theta = c(0, 100, log(.5), 2)
+y = hill_model(theta, x) + rnorm( length(x), sd=2 )
+
+## Create outliers
+y[c(8, 11)] = y[c(8, 11)] + -30
+
+## Ordinary least squares
+fit = optim_fit(theta0=NULL, f.model=hill_model, x=x, y=y)
+
+
+d = data.frame(x=x, y=y)
+pred = as.data.frame(predict(fit, x=2^seq(-6, 4, length=25), interval="confidence"))
+
+ggplot( d, aes(x=x, y=y) ) + geom_point() + 
+  geom_line( data=pred, aes(x, y.hat)) +
+  geom_ribbon( data=pred, aes(x=x, y=y.hat, ymin=lower, ymax=upper), alpha=0.3) +
+  scale_x_log10() + ggtitle("OLS fit")
+
+## IRWLS with Huber weights
+fit = optim_fit(theta0=NULL, f.model=hill_model, x=x, y=y, wts=weights_huber,
+                fit.method="irwls")
+
+d = data.frame(x=x, y=y)
+pred = as.data.frame(predict(fit, x=2^seq(-6, 4, length=25), interval="confidence"))
+
+ggplot( d, aes(x=x, y=y) ) + geom_point() + 
+  geom_line( data=pred, aes(x, y.hat)) +
+  geom_ribbon( data=pred, aes(x=x, y=y.hat, ymin=lower, ymax=upper), alpha=0.3) +
+  scale_x_log10() + ggtitle("IRWLS + Huber weights fit")
+
+
+```
+
+### Multiple starting values
+
+As a convenience, optim_fit() can be called upon to try starting values in a neighborhood of the original starting value (either user-supplied *theta0* or the attr(f_model, 'start') value).  The following code illustrates its usage. The model is initially fitted with OLS and a singular starting value.  Although the fitted object claims that convergence is achieved, the $r^2=0.50$ value is contradictory.  When a grid of neighboring starting value is tried, one of them achieves a much lower BIC.  A graph of the model fit is shown with a single starting value (red) and the fixed (green) and random (blue) neighborhoods of starting values. Note that the green and blue curves overlap.
+
+```{r, echo=TRUE}
+
+set.seed(123)
+theta = c(0, 100, log(0.25), -3, -2)
+y = hill_switchpoint_model(theta, x) + rnorm( length(x), mean=0, sd=5 )
+
+## Try OLS, but original starting value does not provide convergence
+fit1 = optim_fit(NULL, hill_switchpoint_model, x=x, y=y) 
+print(fit1)
+
+
+## Fixed grid of equally-spaced starting values
+fit2 = optim_fit(NULL, hill_switchpoint_model, x=x, y=y, ntry=50, 
+       start.method="fixed", until.converge=FALSE)
+print(fit2)
+
+## Random grid of starting values
+fit3 = optim_fit(NULL, hill_switchpoint_model, x=x, y=y, ntry=50, 
+       start.method="fixed", until.converge=FALSE)
+print(fit3)
+
+d = data.frame(x=x, y=y)
+x.seq = 2^seq(-6, 4, length=25)
+pred = data.frame(x=rep(x.seq, 3),
+                  Fit=rep(c("1 starting value", "Fixed grid", "Random grid"), each=25),
+                  mu=c(predict(fit1, x=x.seq)[,"y.hat"],
+                       predict(fit2, x=x.seq)[,"y.hat"],
+                       predict(fit3, x=x.seq)[,"y.hat"])
+                )
+
+ggplot( d, aes(x=x, y=y) ) + geom_point() + 
+  geom_line( data=pred, aes(x, mu, col=Fit)) +
+  scale_x_log10() + theme(legend.position="top") +
+  guides(col=guide_legend(ncol=2))
+
+
+```
+
+### User-defined model
+
+To illustrate a simple user-defined model, a three-parameter Hill model is constructed with $e_{max}=100$.
+
+
+```{r, echo=TRUE}
+
+set.seed(456)
+x = rep( c(0, 2^(-4:4)), each=4 )
+theta = c(0, log(.5), 2)
+
+hill3_model = function(theta, x){ 
+  ## Parameters are theta = (emin, lec50, m).  Assumes emax = 100.
+  mu = theta[1] + (100 - theta[1])/(1+exp(theta[3]*log(x) - theta[3]*theta[2]))
+  return(mu)
+  }
+
+y = hill3_model(theta, x) + rnorm( length(x), sd=2 )
+
+fit = optim_fit(theta0=c(emin=-1, lec50=log(0.5), m=1), f.model=hill3_model, x=x, y=y)
+print(fit)
+```
+
+
+
+### Functions of parameters
+
+As a convenience function, the standard error (using the *delta* method) and confidence interval for a function of model parameters may be obtained with  get_se_func() as demonstrated below.  The hill_model parameters are $(e_{min}, e_{max}, lec50, m)$ and the function of interest is $lec50 + (1/m) log( \frac{0.5 e_{max}}{ 0.5 e_{max} - e_{min}} )$.
+
+
+```{r, echo=TRUE}
+
+set.seed(456)
+x = rep( c(0, 2^(-4:4)), each=4 )
+theta = c(0, 100, log(.5), 2)
+y = hill_model(theta, x) + rnorm( length(x), sd=2 )
+
+fit = optim_fit(theta0=NULL, f.model=hill_model, x=x, y=y)
+
+myfunc = function(theta){ theta[3] + (1/theta[4])*log( 0.5*theta[2]/(0.5*theta[2] - theta[1])) }
+myfunc( coef(fit) )
+get_se_func(object=fit, Func=myfunc) 
+```
+
+## Detecting outliers with ROUT
+
+Instead of down-weighting outliers, sometimes it is more desirable to detect and eliminate them.  The Robust Outlier (ROUT) detection method of Motulsky and Brown (2008) has been implemented in the OptimModel package.  The Huber weights data example is repeated, but with the rout_fitter().
+
+```{r, echo=TRUE}
+
+set.seed(456)
+x = rep( c(0, 2^(-4:4)), each=4 )
+theta = c(0, 100, log(.5), 2)
+y = hill_model(theta, x) + rnorm( length(x), sd=2 )
+
+## Create outliers
+y[c(8, 11)] = y[c(8, 11)] + -30
+
+## ROUT
+fit_r = rout_fitter(theta0=NULL, f.model=hill_model, x=x, y=y)
+print(fit_r)
+
+## Get the outliers and remove them
+print(which(fit_r$outlier.adj))
+index = !fit_r$outlier.adj
+x.clean = x[index]
+y.clean = y[index]
+
+## Refit model with OLS, but outliers removed
+fit = optim_fit(NULL, hill_model, x=x.clean, y=y.clean)
+
+
+d = data.frame(x=x, y=y)
+pred = as.data.frame(predict(fit, x=2^seq(-6, 4, length=25), interval="confidence"))
+
+ggplot( d, aes(x=x, y=y) ) + geom_point() + 
+  geom_line( data=pred, aes(x, y.hat)) +
+  geom_ribbon( data=pred, aes(x=x, y=y.hat, ymin=lower, ymax=upper), alpha=0.3) +
+  scale_x_log10() + ggtitle("OLS fit after ROUT")
+
+
+```
+
+## Summary
+
+The OptimModel package provides a wide variety of curve-fitting options.  From an optim_fit() object, the user may obtain a printed summary of the model fit, residuals, predicted values with standard error, confidence intervals, and prediction intervals.  The standard error and confidence intervals may also be obtained for functions of the model parameters.  The user may opt to fit the model with OLS, MLE, or IRWLS.  The ROUT outlier detection method is also available.
+
+## References
+
+1. Motulsky, H.J. and Brown, R.E. (2006) Detecting Outliers When Fitting Data with Nonlinear Regression: A New Method Based on Robust Nonlinear Regression and the False Discovery Rate. BMC Bioinformatics, 7, 123.
+
+2. Hill AV. (1910) The possible effects of the aggregation of the molecules of haemoglobin on its dissociation curves. J Physiol (Lond.) 40:iv–vii.
+
+3 Verhulst, Pierre-François (1845). "Recherches mathématiques sur la loi d'accroissement de la population" [Mathematical Researches into the Law of Population Growth Increase]. Nouveaux Mémoires de l'Académie Royale des Sciences et Belles-Lettres de Bruxelles. 18: 8. Retrieved 18 February 2013. Nous donnerons le nom de logistique à la courbe [We will give the name logistic to the curve]

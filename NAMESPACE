@@ -1,0 +1,38 @@
+importFrom("methods", "formalArgs")
+importFrom("stats", "coef", "dcauchy", "dnorm", "fitted", "mad", "nlm",
+			"optim", "p.adjust", "pt", "qt", "quantile", "resid",
+			"rnorm")
+import(Matrix)
+importFrom("utils", "capture.output")
+
+export(beta_model,
+      exp_2o_decay,
+      exp_decay_pl,
+      exp_decay,
+      f2djac,
+      getData,
+      get_se_func,
+      gompertz_model,
+      hill5_model,
+      hill_model,
+      hill_quad_model,
+      hill_switchpoint_model,
+      linear_model,
+      nlogLik_cauchy,
+      optim_fit,
+      rout_fitter,
+      rout_outlier_test,
+      robust_fit,
+      test_fit,
+      weights_varIdent,
+      weights_varExp,
+      weights_huber,
+      weights_varPower,
+      weights_varConstPower,
+      weights_tukey_bw)
+
+S3method(print, optim_fit)
+S3method(predict, optim_fit)
+S3method(residuals, optim_fit)
+S3method(print, rout_fit)
+
