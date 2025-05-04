@@ -1,0 +1,17 @@
+2025-03-05  Steven Novick  <steven.novick@takeda.com>
+
+
+	Small improvements
+
+        * The optim_fit (optim_fit.R) object now holds onto "x" as a list item. This overcomes an issue in extracting the data from the parent directory of an optim_fit               object.
+        * The function residuals.optim_fit (residuals.optim_fit.R) extracts "x" from the optim_fit object for studentized residuals. It no longer calls getData().
+        * The function predict.optim_fit (predict.optim_fit.R) no longer requires an argument "x". It can now extract "x" from the optim_fit object.
+        * test-predict.optim_fit.R and test-residuals.optim_fit.R have been updated to reflect the above changes.
+	* Removed dots (...) from argument in the residuals.optim_fit.Rd manual file
+
+
+2024-03-12  Steven Novick  <steven.novick@takeda.com>
+
+        OptimModel published to CRAN @ https://cran.r-project.org/package=OptimModel
+
+        Thanks to Mark Culp for reconfiguring OptimModel for CRAN compatibility

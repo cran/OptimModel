@@ -29,9 +29,9 @@ test_that("predict.optim_fit", {
   
   sig.with.varpower = sigma*weights_varPower(phi, mu)
 
-  obj1 = list( coefficients=theta, sigma=sigma, call=list(f.model=f1), fitted=mu, varBeta=V, df=10 )  ## Without gradient function
+  obj1 = list( coefficients=theta, sigma=sigma, call=list(f.model=f1), fitted=mu, varBeta=V, df=10, x=x )  ## Without gradient function
   attr(obj1, "w.func") = weights_varIdent
-  obj2 = list( coefficients=theta, sigma=sigma, call=list(f.model=f2), fitted=mu, varBeta=V, df=10 )  ## With gradient function
+  obj2 = list( coefficients=theta, sigma=sigma, call=list(f.model=f2), fitted=mu, varBeta=V, df=10, x=x )  ## With gradient function
   attr(obj2, "w.func") = weights_varPower
   attr(obj2, "var.param") = phi
   
@@ -41,11 +41,12 @@ test_that("predict.optim_fit", {
   expect_equal( predict(obj1), mu, tolerance=1e-3 ) 
    
     ## Ask for SE fit
-  pred2a = try(predict(obj1, se.fit=TRUE), silent=TRUE)   ## Fails
-  expect_true( class(pred2a)[1]=="try-error" )
+  pred2a = try(predict(obj1, se.fit=TRUE), silent=TRUE)   ## without specifying "x"
+  se1 = sqrt(apply(f.grad, 1, function(g){ g%*%V%*%g }))   
+  expect_equal( pred2a, cbind(x=x, y.hat=mu, se.fit=se1), tolerance=1e-3 ) 
   
   pred2b = predict(obj1, x=x, se.fit=TRUE)  ## Without gradient
-  se1 = sqrt(apply(f.grad, 1, function(g){ g%*%V%*%g })) 
+
   expect_equal( pred2b, cbind(x=x, y.hat=mu, se.fit=se1), tolerance=1e-3 ) 
 
   pred2b = predict(obj2, x=x, se.fit=TRUE)  ## With gradient

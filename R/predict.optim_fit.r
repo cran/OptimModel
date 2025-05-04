@@ -3,20 +3,18 @@ predict.optim_fit = function (object, x, se.fit = FALSE,
 {
 
   interval = match.arg(interval)
-  
-  if ( missing(x) && (se.fit | interval!="none") )
-    stop("User must provide 'x' for se.fit=TRUE or interval='confidence' or 'prediction'.")
-  if ( interval != "none" )
-    se.fit = TRUE
-    
 
-  f.model = eval(object$call$f.model)
-  if ( missing(x) && interval=="none" )
+  if ( missing(x) && interval=="none" && !se.fit )
     return( fitted(object) )
 
-  out = list()
-  if ( !missing(x) )
-    out$x = x
+
+  se.fit = se.fit | interval != "none"
+  f.model = eval(object$call$f.model)
+
+  if ( missing(x) )
+    x = object$x
+
+  out = list(x=x)
   out$y.hat = f.model( coef(object), x )
   if ( se.fit )
   {

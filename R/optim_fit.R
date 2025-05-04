@@ -172,7 +172,10 @@ optim_fit = function(theta0, f.model, gr.model=NULL, x, y, wts,
  ## Should this be the best bic or the best bic among fits with Converge==TRUE
      fit = fit[[i.best]]
  }
- 
+
+  ## Hold onto "x" (can be used for predict_optim_fit, needed for studentized residuals)
+  fit$x = x
+  
   class(fit) = c("optim_fit", "list")
 
   return(fit)

@@ -1,4 +1,4 @@
-residuals.optim_fit = function(object, type=c("raw", "studentized"),...)
+residuals.optim_fit = function(object, type=c("raw", "studentized"), ...)
 {
 
     type = match.arg(type)
@@ -8,24 +8,12 @@ residuals.optim_fit = function(object, type=c("raw", "studentized"),...)
     if ( type == "studentized" )
     {
         ## Get data
-        data = getData(object)
-#        x.var = object$call$x
-#        if ( is.data.frame(eval(x.var)) )
-#            x.var = colnames( eval(x.var) )
-#        else if ( length(x.var) > 1 )
-#            x.var = eval(x.var[[length(x.var)]])
-#        else
-#            x.var = all.vars(x.var)
+        x = object$x
 
-        ##  Sometimes the names have a ".x" in front.
-#        if ( all( !is.na(match(paste("x.", x.var, sep=""), names(data))) ) )
-#            x.var = paste("x.", x.var, sep="")
-#        x = data[,x.var]
-        x = data[[1]]
         theta = coef(object)
         if ( object$fit.method == "mle" )
             theta = theta[1:(length(theta)-1)]  ## Remove log(sigma) from parameters
-        f.model = eval( object$call$f.model )
+        f.model = eval( object$call$f.model, envir=parent.frame() )
         jacobian = attr(f.model, "gradient")
         ## Approximate the hat matrix
         X.mat = if ( is.null(jacobian) )

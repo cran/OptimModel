@@ -3,7 +3,7 @@
 \title{Residuals for optim.fit objects}
 \description{ Provides raw and studentized residuals for \code{optim_fit} objects.  }
 \usage{ 
-    \method{residuals}{optim_fit}(object, type=c("raw", "studentized"),\dots)
+    \method{residuals}{optim_fit}(object, type=c("raw", "studentized"), \dots)
 }
 \arguments{
     \item{object}{ An object resulting from \code{optim.fit}(). }
